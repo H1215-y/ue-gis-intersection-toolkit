@@ -38,6 +38,7 @@ import polygon_builder
 import line_builder
 import marking_builder
 import point_builder
+import facility_builder
 
 importlib.reload(project_config)
 importlib.reload(coordinate_utils)
@@ -46,6 +47,7 @@ importlib.reload(polygon_builder)
 importlib.reload(line_builder)
 importlib.reload(marking_builder)
 importlib.reload(point_builder)
+importlib.reload(facility_builder)
 
 from project_config import DATA_FOLDER, LAYER_CONFIG
 from geojson_utils import load_geojson, geometry_types
@@ -154,6 +156,12 @@ def main():
                 f"{layer_name}: 生成失败 -> {type(exc).__name__}: {exc}"
             )
 
+    try:
+        created, updated, facility_skipped = facility_builder.build_traffic_lights()
+        unreal.log_warning(f"Traffic lights | created={created} | updated={updated} | skipped={facility_skipped}")
+    except Exception as exc:
+        failed += 1
+        unreal.log_error(f"Traffic light generation failed -> {type(exc).__name__}: {exc}")
     unreal.log_warning("==============================================")
     unreal.log_warning(
         f"生成结束 | 成功图层={success} | 跳过={skipped} | 失败={failed}"

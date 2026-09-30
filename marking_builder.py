@@ -259,68 +259,73 @@ def _append_stripe(
     # Polygon 挤出极薄高度
     # ========================================================
 
-    for i in range(len(left_points) - 1):
+    # ========================================================
+    # 整条 LineString 组成一个完整 Ribbon Polygon
+    # ========================================================
 
-        l0 = left_points[i]
-        l1 = left_points[i + 1]
+    polygon = []
 
-        r0 = right_points[i]
-        r1 = right_points[i + 1]
-
-        polygon = [
+    # 左边界：正向
+    for x, y in left_points:
+        polygon.append(
             unreal.Vector2D(
-                l0[0] * 100.0,
-                -l0[1] * 100.0
-            ),
-
-            unreal.Vector2D(
-                r0[0] * 100.0,
-                -r0[1] * 100.0
-            ),
-
-            unreal.Vector2D(
-                r1[0] * 100.0,
-                -r1[1] * 100.0
-            ),
-
-            unreal.Vector2D(
-                l1[0] * 100.0,
-                -l1[1] * 100.0
-            ),
-        ]
-
-
-        # Geometry Script 要逆时针
-        area = 0.0
-
-        for j in range(len(polygon)):
-
-            k = (j + 1) % len(polygon)
-
-            area += (
-                polygon[j].x * polygon[k].y
-                -
-                polygon[k].x * polygon[j].y
+                x * 100.0,
+                -y * 100.0
             )
-
-        if area < 0:
-            polygon.reverse()
-
-
-        unreal.GeometryScript_Primitives.append_simple_extrude_polygon(
-            target_mesh=dynamic_mesh,
-            primitive_options=primitive_options,
-            transform=unreal.Transform(),
-            polygon_vertices=polygon,
-
-            # 只做非常薄的一层
-            height=0.2,
-
-            height_steps=0,
-            capped=True,
-
-            origin=unreal.GeometryScriptPrimitiveOriginMode.BASE,
         )
+
+    # 右边界：反向
+    for x, y in reversed(right_points):
+        polygon.append(
+            unreal.Vector2D(
+                x * 100.0,
+                -y * 100.0
+            )
+        )
+
+
+    if len(polygon) < 3:
+        return False
+
+
+    # ========================================================
+    # 检查方向，Geometry Script 要逆时针
+    # ========================================================
+
+    area = 0.0
+
+    for i in range(len(polygon)):
+
+        j = (i + 1) % len(polygon)
+
+        area += (
+            polygon[i].x * polygon[j].y
+            -
+            polygon[j].x * polygon[i].y
+        )
+
+
+    if area < 0:
+        polygon.reverse()
+
+
+    # ========================================================
+    # 一整条标线只生成一次
+    # ========================================================
+
+    unreal.GeometryScript_Primitives.append_simple_extrude_polygon(
+        target_mesh=dynamic_mesh,
+        primitive_options=primitive_options,
+        transform=unreal.Transform(),
+        polygon_vertices=polygon,
+
+        height=0.2,
+
+        height_steps=0,
+        capped=True,
+
+        origin=unreal.GeometryScriptPrimitiveOriginMode.BASE,
+    )
 
 
     return True

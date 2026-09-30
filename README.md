@@ -1,8 +1,8 @@
 # GIS 路口数据 → Unreal Engine 5
 
-这套脚本把 QGIS 导出的 GeoJSON 图层转换为 UE 编辑器里的 Dynamic Mesh Actor，并能按路面多边形批量创建 Cesium Terrain 裁剪 Polygon。脚本面向编辑器内的项目生成流程，不是独立运行的 GIS 转换器。
+这套脚本把 QGIS 导出的 GeoJSON 图层转换为 UE 编辑器里的 Dynamic Mesh Actor，按设施点自动布置交通信号灯，并能按路面多边形批量创建 Cesium Terrain 裁剪 Polygon。脚本面向编辑器内的项目生成流程，不是独立运行的 GIS 转换器。
 
-> 本仓库包含用户授权公开的实际 GeoJSON 路口图层、当前脚本使用的坐标原点和 UE 材质资产，以及 UE 5.8 工程文件。Saved/Intermediate/缓存、个人 Developer 目录和 `CesiumIonSaaS.uasset` 未纳入；目标电脑需安装 Cesium for Unreal 插件并自行创建或配置 Cesium ion 访问。
+> 2026-09-28 更新：工程包已同步当前 `0904.umap`、交通信号灯、路灯、CCTV 等已导入 UE 资产和最新设施生成脚本。本仓库包含用户授权公开的实际 GeoJSON 路口图层、当前脚本使用的坐标原点和 UE 材质资产，以及 UE 5.8 工程文件。Saved/Intermediate/缓存、个人 Developer 目录和 `CesiumIonSaaS.uasset` 未纳入；目标电脑需安装 Cesium for Unreal 插件并自行创建或配置 Cesium ion 访问。
 
 ## 流程概览
 
@@ -12,8 +12,10 @@ QGIS 图层
   → 每个图层保存为约定文件名，放在脚本同一目录
   → 检查 project_config.py 中的局部原点、Z、高度、材质
   → 在 UE5 Editor Python 环境运行 build_intersection.py
+  → 按 road_facility.geojson 和道路中心线生成/更新交通信号灯
   → 在 Cesium World Terrain 上准备 Polygon Raster Overlay
   → 运行 build_all_terrain_clips.py，生成并绑定地形裁剪 Polygon
+  → 必要时运行 build_terrain_bridge.py，生成道路边缘到地形的过渡面
   → 检查生成 Actor、材质、Z 层级和地形裁剪效果
 ```
 
@@ -23,7 +25,7 @@ QGIS 图层
 
 | 文件 | 用途 |
 | --- | --- |
-| `build_intersection.py` | 唯一的总入口；重载模块、扫描 GeoJSON、按图层与几何类型分派 Builder、输出结果日志 |
+| `build_intersection.py` | 总入口；重载模块、生成 GIS 图层，并调用设施 Builder 生成交通信号灯 |
 | `project_config.py` | 当前项目配置，包含局部原点、图层 Z/高度与 UE 材质路径 |
 | `UnrealProject.zip` | 可编辑的完整 UE 工程副本，解压后含 `.uproject`、Config、Content/关卡和材质 |
 | `coordinate_utils.py` | 经纬度 / UTM 识别与转换；减去局部原点，映射到 UE 坐标并把米转换为厘米 |
@@ -32,7 +34,11 @@ QGIS 图层
 | `line_builder.py` | 普通线图层的 Sweep 生成器；道路标线应走专用 Builder |
 | `marking_builder.py` | 读取 `mark_type`、`width_m`、`color` 并生成水平 Ribbon 标线 |
 | `point_builder.py` | Point / MultiPoint 生成定位球 |
+| `facility_builder.py` | 根据 `road_facility.geojson`、`road_centerline.geojson` 和配置蓝图生成/更新交通信号灯 |
 | `build_all_terrain_clips.py` | 从路面/人行道/绿化/交通岛外环生成 Cesium Cartographic Polygon，并批量写入 Terrain Overlay |
+| `build_terrain_bridge.py` | 对道路外轮廓加密、向外偏移、Line Trace 采样 Cesium 地形并生成边缘过渡面 |
+| `spawn_traffic_lights.py` | 早期独立交通信号灯部署脚本，保留用于复现；当前总入口使用 `facility_builder.py` |
+| `fix_ew_traffic_lights.py` | 针对旧版自动信号灯标签的东西向角度一次性修正脚本 |
 | `check_geojson.py` | GeoJSON 基础结构检查脚本 |
 | `test_coordinate_utils.py` | 不依赖 UE 的坐标转换基本测试 |
 
@@ -72,7 +78,9 @@ exec(open(r"<仓库绝对路径>/build_intersection.py", encoding="utf-8").read(
 
 UE Python 仅在 Unreal Editor 中可用，不适用于打包游戏运行时。也可从 Unreal Editor 的 Python 脚本执行工具运行入口文件。
 
-入口先检查文件名配置与 `enabled`，再根据 GeoJSON Geometry 分发到 Polygon、Line 或 Point Builder；`marking.geojson` 会优先进入 `marking_builder.py`，不会交给通用 Sweep 线生成器。每个 Builder 会删除同名旧 Actor 并重建，便于重复运行。生成日志会汇报成功、跳过和失败图层。
+入口先检查文件名配置与 `enabled`，再根据 GeoJSON Geometry 分发到 Polygon、Line 或 Point Builder；`marking.geojson` 会优先进入 `marking_builder.py`，不会交给通用 Sweep 线生成器。每个 Builder 会删除同名旧 Actor 并重建，便于重复运行。图层完成后，入口调用 `facility_builder.build_traffic_lights()`，读取设施点和最近道路中心线，按方向和蓝图配置生成或替换信号灯。生成日志会汇报成功、跳过和失败图层，以及信号灯新建、更新和跳过数量。
+
+`facility_builder.py` 默认加载 `/Game/assets/信号灯/BP_TrafficLight.BP_TrafficLight`。如果资产被移动或改名，先修改 `project_config.py` 中的 `TRAFFIC_LIGHT_BLUEPRINT`。角度校准、Z、高度、最近中心线距离和替换策略也集中在同一配置文件中。
 
 ## 标线属性与虚线规则
 
@@ -102,9 +110,11 @@ UE Python 仅在 Unreal Editor 中可用，不适用于打包游戏运行时。�
 
 注意：这是 Cesium 的材质/渲染裁剪，不会修改隐藏区域的碰撞；Polygon Raster Overlay 的材质层也必须与当前 Tileset 材质配置兼容。脚本按 Terrain Actor 标签和组件类名查找对象；如果你的关卡标签或 Cesium 插件版本 API 不同，需要对应调整。当前裁剪脚本只取每个 Polygon 的外环，不保留内洞。
 
+若裁剪边缘和道路之间出现高差或黑缝，可单独运行 `build_terrain_bridge.py`。它会读取 `road_surface.geojson`，沿道路边缘向外偏移并通过碰撞 Line Trace 采样当前地形高度，生成 `Road_Terrain_Bridge`。使用前检查脚本顶部的道路顶面 Z、外扩距离、采样间距和材质；Cesium 地形必须已加载并提供可命中的碰撞。
+
 ## 换电脑继续工作
 
-克隆或下载本仓库后，解压 `UnrealProject.zip`，进入 `UnrealProject/road-intersection/`，双击 `路口0902.uproject` 即可用 Unreal Engine 5.8 打开项目。该副本包含关卡 `Content/0904.umap`、材质实例、`Config/` 和 `.uproject` 插件启用信息。首次打开时安装兼容版本的 Cesium for Unreal；Python Editor Script、Editor Scripting Utilities 与 Geometry Script 插件也需在项目中启用。出于凭据安全考虑，Cesium ion Server 资产未随包发布；请在新电脑上重新连接 Cesium ion。GeoJSON 与 Python 总入口在仓库根目录，运行时把 `build_intersection.py` 的本地路径传给 UE Editor Python 环境即可。
+克隆或下载本仓库后，解压 `UnrealProject.zip`，进入 `UnrealProject/road-intersection/`，双击 `路口0902.uproject` 即可用 Unreal Engine 5.8 打开项目。当前副本包含 2026-09-24 保存的 `Content/0904.umap`、交通信号灯/路灯/CCTV 等已导入资产、材质、`Config/` 和 `.uproject` 插件启用信息。首次打开时安装兼容版本的 Cesium for Unreal；Python Editor Script、Editor Scripting Utilities 与 Geometry Script 插件也需在项目中启用。出于凭据安全考虑，Cesium ion Server 资产未随包发布；请在新电脑上重新连接 Cesium ion。GeoJSON 与 Python 总入口在仓库根目录，运行时把 `build_intersection.py` 的本地路径传给 UE Editor Python 环境即可。
 
 如果手动迁移而不是克隆仓库，步骤如下：
 

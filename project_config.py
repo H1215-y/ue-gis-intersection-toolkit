@@ -106,7 +106,7 @@ LAYER_CONFIG = {
         "actor_name": "Arrow_Left",
 
         "z_cm": 17.0,
-        "height_cm": 1.0,
+        "height_cm": 0.2,
 
         "folder": "gis/标线",
 
@@ -118,7 +118,7 @@ LAYER_CONFIG = {
         "actor_name": "Arrow_Right",
 
         "z_cm": 17.0,
-        "height_cm": 1.0,
+        "height_cm": 0.2,
 
         "folder": "gis/标线",
 
@@ -130,7 +130,7 @@ LAYER_CONFIG = {
         "actor_name": "Arrow_Straight",
 
         "z_cm": 17.0,
-        "height_cm": 1.0,
+        "height_cm": 0.2,
 
         "folder": "gis/标线",
 
@@ -144,7 +144,7 @@ LAYER_CONFIG = {
         "z_cm": 17.0,
 
         # 如果 GeoJSON 是 Polygon
-        "height_cm": 1.0,
+        "height_cm": 0.2,
 
         # 标线 Feature 的 width_m 属性优先；此值只作缺少属性时的回退。
         "width_cm": 17.0,
@@ -191,7 +191,7 @@ LAYER_CONFIG = {
     # 道路设施定位
     # ========================================================
     "road_facility": {
-        "enabled": True,
+        "enabled": False,
         "actor_name": "Road_Facility_Locators",
 
         "z_cm": 30.0,
@@ -202,3 +202,16 @@ LAYER_CONFIG = {
         "material": None,
     },
 }
+
+# ------------------------------------------------------------
+# 红绿灯蓝图设施生成
+# 当前蓝图朝向已按本项目场景校准。
+# 生成公式为 actor_yaw = road_yaw - TRAFFIC_LIGHT_MODEL_FORWARD_OFFSET_DEG；
+# 更换蓝图或模型前向后，需要重新校准该偏移量。
+# ------------------------------------------------------------
+TRAFFIC_LIGHT_BLUEPRINT = "/Game/assets/信号灯/BP_TrafficLight.BP_TrafficLight"
+TRAFFIC_LIGHT_FOLDER = "gis/设施/红绿灯"
+TRAFFIC_LIGHT_Z_CM = 30.0
+TRAFFIC_LIGHT_MODEL_FORWARD_OFFSET_DEG = -10.0
+TRAFFIC_LIGHT_MAX_CENTERLINE_DISTANCE_M = 80.0
+TRAFFIC_LIGHT_REPLACE_EXISTING = True
