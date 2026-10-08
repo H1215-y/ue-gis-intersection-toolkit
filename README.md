@@ -28,6 +28,7 @@ QGIS 图层
 | `build_intersection.py` | 总入口；重载模块、生成 GIS 图层，并调用设施 Builder 生成交通信号灯 |
 | `project_config.py` | 当前项目配置，包含局部原点、图层 Z/高度与 UE 材质路径 |
 | `UnrealProject.zip` | 可编辑的完整 UE 工程副本，解压后含 `.uproject`、Config、Content/关卡和材质 |
+| `SourceModels/` | 红绿灯、行人灯、路灯和 CCTV 的 Blender / GLB 可编辑源模型 |
 | `coordinate_utils.py` | 经纬度 / UTM 识别与转换；减去局部原点，映射到 UE 坐标并把米转换为厘米 |
 | `geojson_utils.py` | 读取 FeatureCollection、拆分 Polygon / LineString / Point、多部件和 GeometryCollection |
 | `polygon_builder.py` | Polygon / MultiPolygon 转 Dynamic Mesh，按配置挤出高度、应用材质 |
