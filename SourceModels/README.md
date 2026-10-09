@@ -9,6 +9,8 @@
 | `行人灯.blend` | 行人信号灯源模型 |
 | `路灯.blend` | 路灯的 Blender 源模型 |
 | `摄像头.blend` | CCTV 摄像头源模型 |
+| `抓拍闪光灯.blend` | 交通抓拍闪光灯源模型 |
+| `补光灯.blend` | 交通监控补光灯源模型 |
 | `street_light_double.glb` | 双头路灯的交换/导入文件 |
 
 仓库未收录 Blender 自动备份文件 `*.blend1`，也未收录与 `street_light_double.glb` 内容完全相同的 `33.glb`。UE 已导入的模型、材质和纹理仍保存在根目录的 `UnrealProject.zip` 内。
